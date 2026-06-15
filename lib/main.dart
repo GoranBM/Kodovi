@@ -463,71 +463,123 @@ class AddressController {
 class ProfileDetailPage extends StatelessWidget {
   final ContactProfile profile;
 
-  const ProfileDetailPage({super.key, required this.profile});
+  ProfileDetailPage({
+    super.key,
+    required this.profile,
+  });
 
-String qr() {
-  String phones =
-      profile.phones.map((e) => "TEL;TYPE=CELL:$e").join("\r\n");
+  final ScreenshotController screenshotController =
+      ScreenshotController();
 
-  String emails =
-      profile.emails.map((e) => "EMAIL;TYPE=WORK:$e").join("\r\n");
+  String qr() {
+    String phones =
+        profile.phones.map((e) => "TEL;TYPE=CELL:$e").join("\r\n");
 
-  String websites =
-      profile.web.map((e) => "URL:$e").join("\r\n");
+    String emails =
+        profile.emails.map((e) => "EMAIL;TYPE=WORK:$e").join("\r\n");
 
-  String addresses = profile.addresses.map((a) {
-    return "ADR;TYPE=WORK:;;${a.street};${a.city};;${a.zip};${a.country}";
-  }).join("\r\n");
+    String websites =
+        profile.web.map((e) => "URL:$e").join("\r\n");
 
-  return [
-    "BEGIN:VCARD",
-    "VERSION:3.0",
-    "FN:${profile.name}",
-    phones,
-    emails,
-    websites,
-    addresses,
-    "END:VCARD",
-  ].join("\r\n");
-}
+    String addresses = profile.addresses.map((a) {
+      return "ADR;TYPE=WORK:;;${a.street};${a.city};;${a.zip};${a.country}";
+    }).join("\r\n");
+
+    return [
+      "BEGIN:VCARD",
+      "VERSION:3.0",
+      "FN:${profile.name}",
+      phones,
+      emails,
+      websites,
+      addresses,
+      "END:VCARD",
+    ].join("\r\n");
+  }
+
+  Future<void> shareQR() async {
+    final image = await screenshotController.capture();
+
+    if (image == null) return;
+
+    final dir = await getTemporaryDirectory();
+
+    final file = File("${dir.path}/qr_contact.png");
+
+    await file.writeAsBytes(image);
+
+    await Share.shareXFiles(
+      [XFile(file.path)],
+      text: profile.name,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(profile.name)),
-      body: Center(
-        child: Stack(
-        alignment: Alignment.center,
-        children: [
-          QrImageView(
-            data: qr(),
-            size: 250,
-            backgroundColor: Colors.white,
-            errorCorrectionLevel: QrErrorCorrectLevel.H,
-            eyeStyle: const QrEyeStyle(
-              eyeShape: QrEyeShape.square,
-              color: Color(0xFF002856),
-            ),
-            dataModuleStyle: const QrDataModuleStyle(
-              dataModuleShape: QrDataModuleShape.square,
-              color: Color(0xFF002856),
-            ),
-          ),
-
-          Container(
-            width: 55,
-            height: 55,
-            padding: const EdgeInsets.all(6),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-            ),
-            child: Image.asset('assets/monting_logo.jpeg'),
-          ),
-        ],
-      )
+      appBar: AppBar(
+        title: Text(profile.name),
       ),
-      
+
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+
+            Screenshot(
+              controller: screenshotController,
+              child: Container(
+                color: Colors.white,
+                padding: const EdgeInsets.all(20),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    QrImageView(
+                      data: qr(),
+                      size: 250,
+                      backgroundColor: Colors.white,
+                      errorCorrectionLevel: QrErrorCorrectLevel.H,
+                      eyeStyle: const QrEyeStyle(
+                        eyeShape: QrEyeShape.square,
+                        color: Color(0xFF002856),
+                      ),
+                      dataModuleStyle: const QrDataModuleStyle(
+                        dataModuleShape: QrDataModuleShape.square,
+                        color: Color(0xFF002856),
+                      ),
+                    ),
+
+                    Container(
+                      width: 55,
+                      height: 55,
+                      padding: const EdgeInsets.all(6),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Image.asset(
+                        'assets/monting_logo.jpeg',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 30),
+
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF002856),
+                foregroundColor: Colors.white,
+              ),
+              onPressed: shareQR,
+              icon: const Icon(Icons.share),
+              label: const Text("Share QR"),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
