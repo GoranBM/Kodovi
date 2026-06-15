@@ -1,247 +1,405 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:screenshot/screenshot.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
 
 void main() {
   runApp(const MyApp());
 }
+
+// ================= THEME =================
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    const blue = Color(0xFF002856);
+
+    return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: HomePage(),
+      theme: ThemeData(
+        scaffoldBackgroundColor: Colors.white,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.white,
+          foregroundColor: blue,
+          elevation: 0,
+        ),
+        textTheme: const TextTheme(
+          bodyMedium: TextStyle(color: blue),
+        ),
+        inputDecorationTheme: const InputDecorationTheme(
+          alignLabelWithHint: true,
+          border: OutlineInputBorder(),
+          focusedBorder: OutlineInputBorder(
+            borderSide: BorderSide(color: blue),
+          
+          ),
+        ),
+        textButtonTheme: TextButtonThemeData(
+          style: TextButton.styleFrom(
+            foregroundColor: const Color(0xFF002856),
+          ),
+        ),
+      ),
+      home: const ProfileListPage(),
     );
   }
 }
 
-// ================= MODELS =================
+// ================= MODEL =================
 
-class Item {
-  TextEditingController controller;
-  Item(this.controller);
+class ContactProfile {
+  String name;
+  List<String> phones;
+  List<String> emails;
+  List<String> web;
+  List<Address> addresses;
+
+  ContactProfile({
+    required this.name,
+    required this.phones,
+    required this.emails,
+    required this.web,
+    required this.addresses,
+  });
+
+  Map<String, dynamic> toJson() => {
+        "name": name,
+        "phones": phones,
+        "emails": emails,
+        "web": web,
+        "addresses": addresses.map((e) => e.toJson()).toList(),
+      };
+
+  static ContactProfile fromJson(Map<String, dynamic> json) {
+    return ContactProfile(
+      name: json["name"] ?? "",
+      phones: List<String>.from(json["phones"] ?? []),
+      emails: List<String>.from(json["emails"] ?? []),
+      web: List<String>.from(json["web"] ?? []),
+      addresses: (json["addresses"] as List? ?? [])
+          .map((e) => Address.fromJson(e))
+          .toList(),
+    );
+  }
 }
 
-class AddressItem {
-  TextEditingController ulica = TextEditingController();
-  TextEditingController broj = TextEditingController();
-  TextEditingController grad = TextEditingController();
-  TextEditingController zupanija = TextEditingController();
-  TextEditingController postanski = TextEditingController();
-  TextEditingController drzava = TextEditingController();
+class Address {
+  String street;
+  String city;
+  String zip;
+  String country;
+
+  Address({
+    required this.street,
+    required this.city,
+    required this.zip,
+    required this.country,
+  });
+
+  Map<String, dynamic> toJson() => {
+        "street": street,
+        "city": city,
+        "zip": zip,
+        "country": country,
+      };
+
+  static Address fromJson(Map<String, dynamic> json) {
+    return Address(
+      street: json["street"] ?? "",
+      city: json["city"] ?? "",
+      zip: json["zip"] ?? "",
+      country: json["country"] ?? "",
+    );
+  }
 }
 
-// ================= HOME =================
+// ================= STORAGE =================
 
-class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+class Storage {
+  static const key = "profiles";
+
+  static Future<List<ContactProfile>> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getStringList(key) ?? [];
+    return data.map((e) => ContactProfile.fromJson(jsonDecode(e))).toList();
+  }
+
+  static Future<void> save(List<ContactProfile> list) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      key,
+      list.map((e) => jsonEncode(e.toJson())).toList(),
+    );
+  }
+}
+
+// ================= LIST =================
+
+class ProfileListPage extends StatefulWidget {
+  const ProfileListPage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<ProfileListPage> createState() => _ProfileListPageState();
 }
 
-class _HomePageState extends State<HomePage> {
-  final imeController = TextEditingController();
-
-  final ScreenshotController screenshotController = ScreenshotController();
-
-  List<Item> telefoni = [];
-  List<Item> emailovi = [];
-  List<Item> webovi = [];
-  List<AddressItem> adrese = [];
-
-  String qrData = "";
-
-  // ================= INIT =================
+class _ProfileListPageState extends State<ProfileListPage> {
+  List<ContactProfile> profiles = [];
 
   @override
   void initState() {
     super.initState();
-    loadData();
+    load();
   }
 
-  // ================= STORAGE =================
-
-  Future<void> loadData() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    setState(() {
-      imeController.text = prefs.getString("ime") ?? "";
-
-      telefoni = (prefs.getStringList("tel") ?? [])
-          .map((e) => Item(TextEditingController(text: e)))
-          .toList();
-
-      emailovi = (prefs.getStringList("mail") ?? [])
-          .map((e) => Item(TextEditingController(text: e)))
-          .toList();
-
-      webovi = (prefs.getStringList("web") ?? [])
-          .map((e) => Item(TextEditingController(text: e)))
-          .toList();
-    });
+  Future<void> load() async {
+    profiles = await Storage.load();
+    setState(() {});
   }
 
-  Future<void> saveData() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    await prefs.setString("ime", imeController.text);
-    await prefs.setStringList(
-        "tel", telefoni.map((e) => e.controller.text).toList());
-    await prefs.setStringList(
-        "mail", emailovi.map((e) => e.controller.text).toList());
-    await prefs.setStringList(
-        "web", webovi.map((e) => e.controller.text).toList());
+  Future<void> openEditor([ContactProfile? p, int? i]) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EditorPage(existing: p, index: i),
+      ),
+    );
+    load();
   }
 
-  // ================= ADD / REMOVE =================
-
-  void addItem(List<Item> list) {
-    setState(() => list.add(Item(TextEditingController())));
+  Future<void> delete(int i) async {
+    profiles.removeAt(i);
+    await Storage.save(profiles);
+    setState(() {});
   }
 
-  void removeItem(List<Item> list, int index) {
-    setState(() => list.removeAt(index));
-  }
+  @override
+  Widget build(BuildContext context) {
+    const blue = Color(0xFF002856);
 
-  void addAddress() {
-    setState(() => adrese.add(AddressItem()));
-  }
+    return Scaffold(
+      backgroundColor: blue,
+      appBar: AppBar(
+        backgroundColor: blue,
+        foregroundColor: Colors.white,
+        title: const Text("QR Contacts"),
+      ),
+      body: profiles.isEmpty
+          ? Center(
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: blue,
+                ),
+                onPressed: () => openEditor(),
+                child: const Text("+ Kreiraj kontakt"),
+              ),
+            )
+          : Column(
+              children: [
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: profiles.length,
+                    itemBuilder: (c, i) {
+                      final p = profiles[i];
 
-  // ================= VCARD =================
-
-  String buildVCARD() {
-    String tel =
-        telefoni.map((e) => "TEL:${e.controller.text}").join("\n");
-
-    String mail =
-        emailovi.map((e) => "EMAIL:${e.controller.text}").join("\n");
-
-    String web =
-        webovi.map((e) => "URL:${e.controller.text}").join("\n");
-
-    String adr = adrese.map((a) {
-      return "ADR:;;${a.ulica.text} ${a.broj.text};${a.grad.text};${a.zupanija.text};${a.postanski.text};${a.drzava.text}";
-    }).join("\n");
-
-    return '''
-BEGIN:VCARD
-VERSION:3.0
-FN:${imeController.text}
-$tel
-$mail
-$web
-$adr
-END:VCARD
-''';
-  }
-
-  Future<void> generiraj() async {
-    await saveData();
-
-    setState(() {
-      qrData = buildVCARD();
-    });
-  }
-
-  // ================= QR ACTIONS =================
-
-  Future<void> downloadQR() async {
-    final image = await screenshotController.capture();
-    if (image == null) return;
-
-    final dir = await getApplicationDocumentsDirectory();
-    final file = File('${dir.path}/qr_contact.png');
-
-    await file.writeAsBytes(image);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("QR spremljen")),
+                      return Card(
+                        child: ListTile(
+                          title: Text(p.name),
+                          subtitle: Text(
+                              "${p.phones.length} tel • ${p.emails.length} mail"),
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ProfileDetailPage(profile: p),
+                            ),
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                  onPressed: () => openEditor(p, i),
+                                  icon: const Icon(Icons.edit)),
+                              IconButton(
+                                  onPressed: () => delete(i),
+                                  icon: const Icon(Icons.delete)),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: blue,
+                    ),
+                    onPressed: () => openEditor(),
+                    child: const Text("+ Novi kontakt"),
+                  ),
+                )
+              ],
+            ),
     );
   }
+}
 
-  Future<void> shareQR() async {
-    final image = await screenshotController.capture();
-    if (image == null) return;
+// ================= EDITOR =================
 
-    final dir = await getTemporaryDirectory();
-    final file = File('${dir.path}/qr_temp.png');
+class EditorPage extends StatefulWidget {
+  final ContactProfile? existing;
+  final int? index;
 
-    await file.writeAsBytes(image);
+  const EditorPage({super.key, this.existing, this.index});
 
-    await Share.shareXFiles(
-      [XFile(file.path)],
-      text: "Moj QR kontakt",
-    );
+  @override
+  State<EditorPage> createState() => _EditorPageState();
+}
+
+class _EditorPageState extends State<EditorPage> {
+  final name = TextEditingController();
+
+  List<TextEditingController> phones = [];
+  List<TextEditingController> emails = [];
+  List<TextEditingController> web = [];
+
+  List<AddressController> addresses = [];
+
+  @override
+  void initState() {
+    super.initState();
+
+    if (widget.existing != null) {
+      name.text = widget.existing!.name;
+
+      phones = widget.existing!.phones
+          .map((e) => TextEditingController(text: e))
+          .toList();
+
+      emails = widget.existing!.emails
+          .map((e) => TextEditingController(text: e))
+          .toList();
+
+      web = widget.existing!.web
+          .map((e) => TextEditingController(text: e))
+          .toList();
+
+      addresses = widget.existing!.addresses
+          .map((a) => AddressController()
+            ..street.text = a.street
+            ..city.text = a.city
+            ..zip.text = a.zip
+            ..country.text = a.country)
+          .toList();
+    }
   }
 
-  // ================= UI HELPERS =================
+  void addPhone() => setState(() => phones.add(TextEditingController()));
+  void addEmail() => setState(() => emails.add(TextEditingController()));
+  void addWeb() => setState(() => web.add(TextEditingController()));
+  void addAddress() => setState(() => addresses.add(AddressController()));
 
-  Widget buildList(String title, List<Item> list) {
+  Future<void> save() async {
+    final list = await Storage.load();
+
+    final p = ContactProfile(
+      name: name.text,
+      phones: phones.map((e) => e.text).toList(),
+      emails: emails.map((e) => e.text).toList(),
+      web: web.map((e) => e.text).toList(),
+      addresses: addresses
+          .map((a) => Address(
+                street: a.street.text,
+                city: a.city.text,
+                zip: a.zip.text,
+                country: a.country.text,
+              ))
+          .toList(),
+    );
+
+    if (widget.index != null) {
+      list[widget.index!] = p;
+    } else {
+      list.add(p);
+    }
+
+    await Storage.save(list);
+    if (!context.mounted) return;
+    Navigator.pop(context);
+  }
+
+  Widget buildList(String title, List<TextEditingController> list, VoidCallback add) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title,
-            style: const TextStyle(fontWeight: FontWeight.bold)),
-
-        const SizedBox(height: 10),
-
-        ...list.asMap().entries.map((e) {
-          return Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: e.value.controller,
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                  ),
+        Text(title),
+        ...list.map((c) => TextField(
+              controller: c,
+              style: const TextStyle(color: Color(0xFF002856)),
+              decoration: const InputDecoration(
+                labelStyle: TextStyle(color: Color(0xFF002856)),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Color(0xFF002856)),
                 ),
+                border: OutlineInputBorder(),
               ),
-              IconButton(
-                icon: const Icon(Icons.delete),
-                onPressed: () => removeItem(list, e.key),
-              )
-            ],
-          );
-        }),
-
+            )),
         TextButton(
-          onPressed: () => addItem(list),
+          onPressed: add,
           child: Text("+ Dodaj $title"),
-        ),
+        )
       ],
     );
   }
 
-  Widget buildAdrese() {
+  Widget buildAddress() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("Adrese",
-            style: TextStyle(fontWeight: FontWeight.bold)),
+        const Text(
+          "Adrese",
+          style: TextStyle(color: Color(0xFF002856), fontWeight: FontWeight.bold),
+        ),
 
         const SizedBox(height: 10),
 
-        ...adrese.map((a) {
+        ...addresses.map((a) {
           return Card(
+            color: const Color(0xFFEAF3FF),
             child: Padding(
               padding: const EdgeInsets.all(10),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  TextField(controller: a.ulica, decoration: const InputDecoration(labelText: "Ulica")),
-                  TextField(controller: a.broj, decoration: const InputDecoration(labelText: "Broj")),
-                  TextField(controller: a.grad, decoration: const InputDecoration(labelText: "Grad")),
-                  TextField(controller: a.zupanija, decoration: const InputDecoration(labelText: "Županija")),
-                  TextField(controller: a.postanski, decoration: const InputDecoration(labelText: "Poštanski")),
-                  TextField(controller: a.drzava, decoration: const InputDecoration(labelText: "Država")),
+                  TextField(
+                    controller: a.street,
+                    decoration: const InputDecoration(labelText: "Ulica"),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: a.city,
+                    decoration: const InputDecoration(labelText: "Grad"),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: a.zip,
+                    decoration: const InputDecoration(labelText: "Poštanski broj"),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: a.country,
+                    decoration: const InputDecoration(labelText: "Država"),
+                  ),
+                  const SizedBox(height: 12),
                 ],
               ),
             ),
@@ -250,97 +408,126 @@ END:VCARD
 
         TextButton(
           onPressed: addAddress,
-          child: const Text("+ Dodaj adresu"),
+          child: const Text(
+            "+ Dodaj adresu",
+            style: TextStyle(color: Color(0xFF002856)),
+          ),
         ),
       ],
     );
   }
 
-  // ================= BUILD =================
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Kontakt")),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            TextField(
+              controller: name,
+              textAlign: TextAlign.left,
+              decoration: const InputDecoration(labelText: "Ime"),
+            ),
+            const SizedBox(height: 20),
+            buildList("Telefoni", phones, addPhone),
+            buildList("Emailovi", emails, addEmail),
+            buildList("Web", web, addWeb),
+            buildAddress(),
+            const SizedBox(height: 20),
+            ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF002856),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: save,
+                child: const Text("Spremi"),
+              )
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AddressController {
+  TextEditingController street = TextEditingController();
+  TextEditingController city = TextEditingController();
+  TextEditingController zip = TextEditingController();
+  TextEditingController country = TextEditingController();
+}
+
+// ================= QR =================
+
+class ProfileDetailPage extends StatelessWidget {
+  final ContactProfile profile;
+
+  const ProfileDetailPage({super.key, required this.profile});
+
+String qr() {
+  String phones =
+      profile.phones.map((e) => "TEL;TYPE=CELL:$e").join("\r\n");
+
+  String emails =
+      profile.emails.map((e) => "EMAIL;TYPE=WORK:$e").join("\r\n");
+
+  String websites =
+      profile.web.map((e) => "URL:$e").join("\r\n");
+
+  String addresses = profile.addresses.map((a) {
+    return "ADR;TYPE=WORK:;;${a.street};${a.city};;${a.zip};${a.country}";
+  }).join("\r\n");
+
+  return [
+    "BEGIN:VCARD",
+    "VERSION:3.0",
+    "FN:${profile.name}",
+    phones,
+    emails,
+    websites,
+    addresses,
+    "END:VCARD",
+  ].join("\r\n");
+}
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("QR Contact PRO")),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            TextField(
-              controller: imeController,
-              decoration: const InputDecoration(labelText: "Ime"),
+      appBar: AppBar(title: Text(profile.name)),
+      body: Center(
+        child: Stack(
+        alignment: Alignment.center,
+        children: [
+          QrImageView(
+            data: qr(),
+            size: 250,
+            backgroundColor: Colors.white,
+            errorCorrectionLevel: QrErrorCorrectLevel.H,
+            eyeStyle: const QrEyeStyle(
+              eyeShape: QrEyeShape.square,
+              color: Color(0xFF002856),
             ),
-
-            const SizedBox(height: 20),
-
-            buildList("Telefoni", telefoni),
-            buildList("Emailovi", emailovi),
-            buildList("Web", webovi),
-            buildAdrese(),
-
-            const SizedBox(height: 20),
-
-            ElevatedButton(
-              onPressed: generiraj,
-              child: const Text("Generiraj QR"),
+            dataModuleStyle: const QrDataModuleStyle(
+              dataModuleShape: QrDataModuleShape.square,
+              color: Color(0xFF002856),
             ),
+          ),
 
-            const SizedBox(height: 20),
-
-            if (qrData.isNotEmpty)
-              Screenshot(
-                controller: screenshotController,
-                child: SizedBox(
-                  width: 300,
-                  height: 300,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      QrImageView(
-                        data: qrData,
-                        size: 300,
-                        errorCorrectionLevel:
-                            QrErrorCorrectLevel.H,
-                      ),
-                      Container(
-                        width: 70,
-                        height: 70,
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Padding(
-                          padding: EdgeInsets.all(8),
-                          child: Image.asset(
-                              'assets/monting_logo.jpeg'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-            const SizedBox(height: 20),
-
-            if (qrData.isNotEmpty)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: downloadQR,
-                    icon: const Icon(Icons.download),
-                    label: const Text("Download"),
-                  ),
-                  ElevatedButton.icon(
-                    onPressed: shareQR,
-                    icon: const Icon(Icons.share),
-                    label: const Text("Share"),
-                  ),
-                ],
-              ),
-          ],
-        ),
+          Container(
+            width: 55,
+            height: 55,
+            padding: const EdgeInsets.all(6),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
+            child: Image.asset('assets/monting_logo.jpeg'),
+          ),
+        ],
+      )
       ),
+      
     );
   }
 }
