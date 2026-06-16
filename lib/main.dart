@@ -1,11 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
 
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:cross_file/cross_file.dart';
 import 'package:path_provider/path_provider.dart';
 
 void main() {
@@ -632,6 +634,7 @@ class ProfileDetailPage extends StatelessWidget {
     return [
       "BEGIN:VCARD",
       "VERSION:3.0",
+      "N:${profile.name};;;;",
       "FN:${profile.name}",
       phones,
       emails,
@@ -658,28 +661,17 @@ class ProfileDetailPage extends StatelessWidget {
     );
   }
 
-  Future<void> shareVCard() async {
-    final dir = await getTemporaryDirectory();
+Future<void> shareVCard() async {
+  final dir = await getTemporaryDirectory();
 
-    // Spremi .vcf file
-    final vcfFile = File("${dir.path}/${profile.name.replaceAll(' ', '_')}.vcf");
-    await vcfFile.writeAsString(qr()); // qr() već vraća vCard string
+  final file = File('${dir.path}/contact.vcf');
 
-    // Spremi QR sliku
-    final image = await screenshotController.capture();
-    List<XFile> files = [XFile(vcfFile.path)];
+  await file.writeAsString(qr());
 
-    if (image != null) {
-      final imgFile = File("${dir.path}/qr_contact.png");
-      await imgFile.writeAsBytes(image);
-      files.insert(0, XFile(imgFile.path)); // QR slika prva
-    }
-
-    await Share.shareXFiles(
-      files,
-      text: "Kontakt: ${profile.name}",
-    );
-  }
+  await Share.shareXFiles([
+    XFile(file.path),
+  ]);
+}
 
   @override
   Widget build(BuildContext context) {
