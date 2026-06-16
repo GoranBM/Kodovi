@@ -38,7 +38,6 @@ class MyApp extends StatelessWidget {
           border: OutlineInputBorder(),
           focusedBorder: OutlineInputBorder(
             borderSide: BorderSide(color: blue),
-          
           ),
         ),
         textButtonTheme: TextButtonThemeData(
@@ -188,7 +187,7 @@ class _ProfileListPageState extends State<ProfileListPage> {
       appBar: AppBar(
         backgroundColor: blue,
         foregroundColor: Colors.white,
-        title: const Text("QR Contacts"),
+        title: const Text("Digitalna vizitka"),
       ),
       body: profiles.isEmpty
           ? Center(
@@ -266,12 +265,13 @@ class EditorPage extends StatefulWidget {
 }
 
 class _EditorPageState extends State<EditorPage> {
+  static const blue = Color(0xFF002856);
+
   final name = TextEditingController();
 
   List<TextEditingController> phones = [];
   List<TextEditingController> emails = [];
   List<TextEditingController> web = [];
-
   List<AddressController> addresses = [];
 
   @override
@@ -337,83 +337,185 @@ class _EditorPageState extends State<EditorPage> {
     Navigator.pop(context);
   }
 
-  Widget buildList(String title, List<TextEditingController> list, VoidCallback add) {
+  // ── Sekcija s labelom lijevo i "+" gumbom desno ──────────────────────────
+  Widget buildSection({
+    required String label,
+    required List<TextEditingController> controllers,
+    required VoidCallback onAdd,
+    TextInputType keyboardType = TextInputType.text,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title),
-        ...list.map((c) => TextField(
-              controller: c,
-              style: const TextStyle(color: Color(0xFF002856)),
-              decoration: const InputDecoration(
-                labelStyle: TextStyle(color: Color(0xFF002856)),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Color(0xFF002856)),
-                ),
-                border: OutlineInputBorder(),
+        // Naslov sekcije + "+" gumb desno
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                color: blue,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.3,
               ),
-            )),
-        TextButton(
-          onPressed: add,
-          child: Text("+ Dodaj $title"),
-        )
+            ),
+            ElevatedButton.icon(
+              onPressed: onAdd,  // ili addAddress za drugi slučaj
+              icon: const Icon(Icons.add, size: 14, color: Colors.white),
+              label: const Text(
+                "Dodaj",
+                style: TextStyle(color: Colors.white, fontSize: 13),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: blue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                shape: StadiumBorder(), // ← ovo je pilula
+                elevation: 0,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        // Polja
+        ...controllers.asMap().entries.map((entry) {
+          final i = entry.key;
+          final c = entry.value;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: c,
+                    keyboardType: keyboardType,
+                    style: const TextStyle(color: blue),
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      border: OutlineInputBorder(),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: blue),
+                      ),
+                    ),
+                  ),
+                ),
+                // Gumb za brisanje pojedinog polja
+                if (controllers.length > 1)
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 18, color: Colors.red),
+                    onPressed: () => setState(() => controllers.removeAt(i)),
+                    padding: const EdgeInsets.only(left: 4),
+                    constraints: const BoxConstraints(),
+                  ),
+              ],
+            ),
+          );
+        }),
       ],
     );
   }
 
-  Widget buildAddress() {
+  // ── Sekcija za adrese ─────────────────────────────────────────────────────
+  Widget buildAddressSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          "Adrese",
-          style: TextStyle(color: Color(0xFF002856), fontWeight: FontWeight.bold),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              "Adresa",
+              style: TextStyle(
+                color: blue,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.3,
+              ),
+            ),
+            ElevatedButton.icon(
+              onPressed: addAddress,  // ili addAddress za drugi slučaj
+              icon: const Icon(Icons.add, size: 14, color: Colors.white),
+              label: const Text(
+                "Dodaj",
+                style: TextStyle(color: Colors.white, fontSize: 13),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: blue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                shape: StadiumBorder(), // ← ovo je pilula
+                elevation: 0,
+              ),
+            ),
+          ],
         ),
-
-        const SizedBox(height: 10),
-
-        ...addresses.map((a) {
+        const SizedBox(height: 6),
+        ...addresses.asMap().entries.map((entry) {
+          final i = entry.key;
+          final a = entry.value;
           return Card(
             color: const Color(0xFFEAF3FF),
+            margin: const EdgeInsets.only(bottom: 10),
             child: Padding(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.fromLTRB(12, 8, 4, 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  TextField(
-                    controller: a.street,
-                    decoration: const InputDecoration(labelText: "Ulica"),
+                  // Brisanje adrese
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: IconButton(
+                      icon: const Icon(Icons.close,
+                          size: 18, color: Colors.red),
+                      onPressed: () => setState(() => addresses.removeAt(i)),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: a.city,
-                    decoration: const InputDecoration(labelText: "Grad"),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: a.zip,
-                    decoration: const InputDecoration(labelText: "Poštanski broj"),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: a.country,
-                    decoration: const InputDecoration(labelText: "Država"),
-                  ),
-                  const SizedBox(height: 12),
+                  _addressField(a.street, "Ulica"),
+                  const SizedBox(height: 10),
+                  _addressField(a.city, "Grad"),
+                  const SizedBox(height: 10),
+                  _addressField(a.zip, "Poštanski broj",
+                      keyboardType: TextInputType.number),
+                  const SizedBox(height: 10),
+                  _addressField(a.country, "Država"),
                 ],
               ),
             ),
           );
         }),
-
-        TextButton(
-          onPressed: addAddress,
-          child: const Text(
-            "+ Dodaj adresu",
-            style: TextStyle(color: Color(0xFF002856)),
-          ),
-        ),
       ],
+    );
+  }
+
+  Widget _addressField(
+    TextEditingController c,
+    String label, {
+    TextInputType keyboardType = TextInputType.text,
+  }) {
+    return TextField(
+      controller: c,
+      keyboardType: keyboardType,
+      style: const TextStyle(color: blue),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: blue),
+        isDense: true,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        border: const OutlineInputBorder(),
+        focusedBorder: const OutlineInputBorder(
+          borderSide: BorderSide(color: blue),
+        ),
+      ),
     );
   }
 
@@ -424,26 +526,70 @@ class _EditorPageState extends State<EditorPage> {
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start, // ← FIX: sve lijevo
           children: [
+            // ── Ime i prezime ──────────────────────────────────────────────
             TextField(
               controller: name,
-              textAlign: TextAlign.left,
-              decoration: const InputDecoration(labelText: "Ime"),
+              style: const TextStyle(color: blue),
+              decoration: const InputDecoration(
+                labelText: "Ime i prezime",
+                labelStyle: TextStyle(color: blue),
+                border: OutlineInputBorder(),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: blue),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // ── Telefon ────────────────────────────────────────────────────
+            buildSection(
+              label: "Broj telefona",
+              controllers: phones,
+              onAdd: addPhone,
+              keyboardType: TextInputType.phone,
             ),
             const SizedBox(height: 20),
-            buildList("Telefoni", phones, addPhone),
-            buildList("Emailovi", emails, addEmail),
-            buildList("Web", web, addWeb),
-            buildAddress(),
+
+            // ── Email ──────────────────────────────────────────────────────
+            buildSection(
+              label: "Email",
+              controllers: emails,
+              onAdd: addEmail,
+              keyboardType: TextInputType.emailAddress,
+            ),
             const SizedBox(height: 20),
-            ElevatedButton(
+
+            // ── Web ────────────────────────────────────────────────────────
+            buildSection(
+              label: "Web stranica",
+              controllers: web,
+              onAdd: addWeb,
+              keyboardType: TextInputType.url,
+            ),
+            const SizedBox(height: 20),
+
+            // ── Adresa ─────────────────────────────────────────────────────
+            buildAddressSection(),
+            const SizedBox(height: 28),
+
+            // ── Spremi ─────────────────────────────────────────────────────
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF002856),
+                  backgroundColor: blue,
                   foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
                 onPressed: save,
-                child: const Text("Spremi"),
-              )
+                child: const Text("Spremi", style: TextStyle(fontSize: 16)),
+              ),
+            ),
           ],
         ),
       ),
@@ -468,8 +614,7 @@ class ProfileDetailPage extends StatelessWidget {
     required this.profile,
   });
 
-  final ScreenshotController screenshotController =
-      ScreenshotController();
+  final ScreenshotController screenshotController = ScreenshotController();
 
   String qr() {
     String phones =
@@ -478,8 +623,7 @@ class ProfileDetailPage extends StatelessWidget {
     String emails =
         profile.emails.map((e) => "EMAIL;TYPE=WORK:$e").join("\r\n");
 
-    String websites =
-        profile.web.map((e) => "URL:$e").join("\r\n");
+    String websites = profile.web.map((e) => "URL:$e").join("\r\n");
 
     String addresses = profile.addresses.map((a) {
       return "ADR;TYPE=WORK:;;${a.street};${a.city};;${a.zip};${a.country}";
@@ -514,18 +658,39 @@ class ProfileDetailPage extends StatelessWidget {
     );
   }
 
+  Future<void> shareVCard() async {
+    final dir = await getTemporaryDirectory();
+
+    // Spremi .vcf file
+    final vcfFile = File("${dir.path}/${profile.name.replaceAll(' ', '_')}.vcf");
+    await vcfFile.writeAsString(qr()); // qr() već vraća vCard string
+
+    // Spremi QR sliku
+    final image = await screenshotController.capture();
+    List<XFile> files = [XFile(vcfFile.path)];
+
+    if (image != null) {
+      final imgFile = File("${dir.path}/qr_contact.png");
+      await imgFile.writeAsBytes(image);
+      files.insert(0, XFile(imgFile.path)); // QR slika prva
+    }
+
+    await Share.shareXFiles(
+      files,
+      text: "Kontakt: ${profile.name}",
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(profile.name),
       ),
-
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-
             Screenshot(
               controller: screenshotController,
               child: Container(
@@ -548,7 +713,6 @@ class ProfileDetailPage extends StatelessWidget {
                         color: Color(0xFF002856),
                       ),
                     ),
-
                     Container(
                       width: 55,
                       height: 55,
@@ -565,17 +729,30 @@ class ProfileDetailPage extends StatelessWidget {
                 ),
               ),
             ),
-
             const SizedBox(height: 30),
-
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF002856),
-                foregroundColor: Colors.white,
-              ),
-              onPressed: shareQR,
-              icon: const Icon(Icons.share),
-              label: const Text("Share QR"),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF002856),
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: shareQR,
+                  icon: const Icon(Icons.qr_code),
+                  label: const Text("Dijeli QR"),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF002856),
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: shareVCard,
+                  icon: const Icon(Icons.person_add),
+                  label: const Text("Dijeli kontakt"),
+                ),
+              ],
             ),
           ],
         ),
