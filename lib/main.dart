@@ -7,7 +7,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:cross_file/cross_file.dart';
 import 'package:path_provider/path_provider.dart';
 
 void main() {
@@ -61,6 +60,9 @@ class ContactProfile {
   List<String> emails;
   List<String> web;
   List<Address> addresses;
+  List<JobInfo> jobs;
+
+  
 
   ContactProfile({
     required this.name,
@@ -68,6 +70,7 @@ class ContactProfile {
     required this.emails,
     required this.web,
     required this.addresses,
+    required this.jobs,
   });
 
   Map<String, dynamic> toJson() => {
@@ -76,6 +79,7 @@ class ContactProfile {
         "emails": emails,
         "web": web,
         "addresses": addresses.map((e) => e.toJson()).toList(),
+        "jobs": jobs.map((e) => e.toJson()).toList(),
       };
 
   static ContactProfile fromJson(Map<String, dynamic> json) {
@@ -86,6 +90,9 @@ class ContactProfile {
       web: List<String>.from(json["web"] ?? []),
       addresses: (json["addresses"] as List? ?? [])
           .map((e) => Address.fromJson(e))
+          .toList(),
+      jobs: (json["jobs"] as List? ?? [])
+          .map((e) => JobInfo.fromJson(e))
           .toList(),
     );
   }
@@ -117,6 +124,32 @@ class Address {
       city: json["city"] ?? "",
       zip: json["zip"] ?? "",
       country: json["country"] ?? "",
+    );
+  }
+}
+
+class JobInfo {
+  String title;
+  String department;
+  String company;
+
+  JobInfo({
+    required this.title,
+    required this.department,
+    required this.company,
+  });
+
+  Map<String, dynamic> toJson() => {
+        "title": title,
+        "department": department,
+        "company": company,
+      };
+
+  static JobInfo fromJson(Map<String, dynamic> json) {
+    return JobInfo(
+      title: json["title"] ?? "",
+      department: json["department"] ?? "",
+      company: json["company"] ?? "",
     );
   }
 }
@@ -275,6 +308,7 @@ class _EditorPageState extends State<EditorPage> {
   List<TextEditingController> emails = [];
   List<TextEditingController> web = [];
   List<AddressController> addresses = [];
+  List<JobController> jobs = [];
 
   @override
   void initState() {
@@ -302,6 +336,12 @@ class _EditorPageState extends State<EditorPage> {
             ..zip.text = a.zip
             ..country.text = a.country)
           .toList();
+      jobs = widget.existing!.jobs
+          .map((j) => JobController()
+            ..title.text = j.title
+            ..department.text = j.department
+            ..company.text = j.company)
+          .toList();    
     }
   }
 
@@ -309,6 +349,7 @@ class _EditorPageState extends State<EditorPage> {
   void addEmail() => setState(() => emails.add(TextEditingController()));
   void addWeb() => setState(() => web.add(TextEditingController()));
   void addAddress() => setState(() => addresses.add(AddressController()));
+  void addJob() => setState(() => jobs.add(JobController()));
 
   Future<void> save() async {
     final list = await Storage.load();
@@ -326,6 +367,14 @@ class _EditorPageState extends State<EditorPage> {
                 country: a.country.text,
               ))
           .toList(),
+      jobs: jobs
+          .map((j) => JobInfo(
+                title: j.title.text,
+                department: j.department.text,
+                company: j.company.text,
+              ))
+          .toList(),
+
     );
 
     if (widget.index != null) {
@@ -498,6 +547,94 @@ class _EditorPageState extends State<EditorPage> {
     );
   }
 
+Widget buildJobSection() {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text(
+            "Posao",
+            style: TextStyle(
+              color: blue,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.3,
+            ),
+          ),
+          ElevatedButton.icon(
+            onPressed: addJob,
+            icon: const Icon(Icons.add, size: 14, color: Colors.white),
+            label: const Text(
+              "Dodaj",
+              style: TextStyle(color: Colors.white, fontSize: 13),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: blue,
+              foregroundColor: Colors.white,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              shape: const StadiumBorder(),
+              elevation: 0,
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 6),
+
+      ...jobs.asMap().entries.map((entry) {
+        final i = entry.key;
+        final j = entry.value;
+
+        return Card(
+          color: const Color(0xFFEAF3FF),
+          margin: const EdgeInsets.only(bottom: 10),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 4, 12),
+            child: Column(
+              children: [
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.close,
+                      size: 18,
+                      color: Colors.red,
+                    ),
+                    onPressed: () =>
+                        setState(() => jobs.removeAt(i)),
+                  ),
+                ),
+
+                _addressField(
+                  j.title,
+                  "Titula",
+                ),
+
+                const SizedBox(height: 10),
+
+                _addressField(
+                  j.department,
+                  "Odjel",
+                ),
+
+                const SizedBox(height: 10),
+
+                _addressField(
+                  j.company,
+                  "Kompanija",
+                ),
+              ],
+            ),
+          ),
+        );
+      }),
+    ],
+  );
+}
   Widget _addressField(
     TextEditingController c,
     String label, {
@@ -563,6 +700,9 @@ class _EditorPageState extends State<EditorPage> {
             ),
             const SizedBox(height: 20),
 
+            buildJobSection(),
+            const SizedBox(height: 20),
+
             // ── Web ────────────────────────────────────────────────────────
             buildSection(
               label: "Web stranica",
@@ -606,6 +746,12 @@ class AddressController {
   TextEditingController country = TextEditingController();
 }
 
+class JobController {
+  TextEditingController title = TextEditingController();
+  TextEditingController department = TextEditingController();
+  TextEditingController company = TextEditingController();
+}
+
 // ================= QR =================
 
 class ProfileDetailPage extends StatelessWidget {
@@ -631,6 +777,22 @@ class ProfileDetailPage extends StatelessWidget {
       return "ADR;TYPE=WORK:;;${a.street};${a.city};;${a.zip};${a.country}";
     }).join("\r\n");
 
+    String jobsData = profile.jobs.map((j) {
+    final lines = <String>[];
+
+    if (j.title.isNotEmpty) {
+      lines.add("TITLE:${j.title}");
+    }
+
+    if (j.company.isNotEmpty) {
+      lines.add(
+        "ORG:${j.company}${j.department.isNotEmpty ? ';${j.department}' : ''}",
+      );
+    }
+
+    return lines.join("\r\n");
+  }).join("\r\n");
+
     return [
       "BEGIN:VCARD",
       "VERSION:3.0",
@@ -638,6 +800,7 @@ class ProfileDetailPage extends StatelessWidget {
       "FN:${profile.name}",
       phones,
       emails,
+      jobsData,
       websites,
       addresses,
       "END:VCARD",
