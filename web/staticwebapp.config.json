@@ -1,0 +1,9 @@
+{
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/flutter_service_worker.js", "/flutter_bootstrap.js", "/*.{png,jpg,gif,ico,json,js,css,wasm,map}"]
+  },
+  "globalHeaders": {
+    "cache-control": "no-cache"
+  }
+}

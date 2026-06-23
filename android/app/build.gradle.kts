@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.example.qr_kontakt"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
