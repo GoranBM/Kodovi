@@ -25,7 +25,7 @@ class AuthService {
 
   static const _scopes = [
     'openid', 'profile', 'email', 'offline_access',
-    'Files.ReadWrite', 'User.Read',
+    'Files.ReadWrite', 'User.Read', 'User.Read.All',
   ];
 
   static final _storage = FlutterSecureStorage();

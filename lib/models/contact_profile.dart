@@ -2,6 +2,7 @@ import 'package:uuid/uuid.dart';
 
 class ContactProfile {
   final String pin;
+  final bool isSystem; // true = sinkronizirano iz Azure AD, read-only
   String name;
   List<String> phones;
   List<String> emails;
@@ -11,6 +12,7 @@ class ContactProfile {
 
   ContactProfile({
     String? pin,
+    this.isSystem = false,
     required this.name,
     required this.phones,
     required this.emails,
@@ -24,6 +26,7 @@ class ContactProfile {
 
   Map<String, dynamic> toJson() => {
         "pin": pin,
+        "isSystem": isSystem,
         "name": name,
         "phones": phones,
         "emails": emails,
@@ -35,6 +38,7 @@ class ContactProfile {
   static ContactProfile fromJson(Map<String, dynamic> json) {
     return ContactProfile(
       pin: json["pin"] as String?,
+      isSystem: json["isSystem"] == true,
       name: json["name"] ?? "",
       phones: List<String>.from(json["phones"] ?? []),
       emails: List<String>.from(json["emails"] ?? []),

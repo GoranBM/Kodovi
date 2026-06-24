@@ -4,6 +4,7 @@ import '../models/contact_profile.dart';
 import '../pages/login_page.dart';
 import '../services/auth_service.dart';
 import '../services/onedrive_service.dart';
+import 'directory_page.dart';
 import 'editor_page.dart';
 import 'profile_detail_page.dart';
 
@@ -16,6 +17,7 @@ class ProfileListPage extends StatefulWidget {
 
 class _ProfileListPageState extends State<ProfileListPage> {
   static const blue = Color(0xFF002856);
+  static const systemBlue = Color(0xFF001535); // tamnija za system kartice
 
   List<ContactProfile> profiles = [];
   bool _loading = true;
@@ -32,11 +34,23 @@ class _ProfileListPageState extends State<ProfileListPage> {
       _loading = true;
       _error = null;
     });
+
+    // Daily sync iz Azure AD — greška ne blokira prikaz postojećih profila
     try {
-      profiles = await OneDriveService.loadAll();
+      if (await OneDriveService.needsAdSync()) {
+        await OneDriveService.syncSystemProfile();
+      }
+    } catch (_) {}
+
+    try {
+      final all = await OneDriveService.loadAll();
+      // System kartice uvijek prve
+      all.sort((a, b) => (b.isSystem ? 1 : 0) - (a.isSystem ? 1 : 0));
+      if (mounted) setState(() => profiles = all);
     } catch (e) {
       if (mounted) setState(() => _error = "Greška pri učitavanju podataka.");
     }
+
     if (mounted) setState(() => _loading = false);
   }
 
@@ -48,8 +62,7 @@ class _ProfileListPageState extends State<ProfileListPage> {
     _load();
   }
 
-  Future<void> _delete(int i) async {
-    final profile = profiles[i];
+  Future<void> _delete(ContactProfile profile, int i) async {
     setState(() => profiles.removeAt(i));
     await OneDriveService.delete(profile);
   }
@@ -72,6 +85,14 @@ class _ProfileListPageState extends State<ProfileListPage> {
         foregroundColor: Colors.white,
         title: const Text("Digitalna vizitka"),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.people),
+            tooltip: "Imenik Monting",
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const DirectoryPage()),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: "Odjava",
@@ -116,33 +137,7 @@ class _ProfileListPageState extends State<ProfileListPage> {
                               itemCount: profiles.length,
                               itemBuilder: (c, i) {
                                 final p = profiles[i];
-                                return Card(
-                                  child: ListTile(
-                                    title: Text(p.name),
-                                    subtitle: Text(
-                                        "${p.phones.length} tel • ${p.emails.length} mail"),
-                                    onTap: () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) =>
-                                            ProfileDetailPage(profile: p),
-                                      ),
-                                    ),
-                                    trailing: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        IconButton(
-                                          onPressed: () => _openEditor(p),
-                                          icon: const Icon(Icons.edit),
-                                        ),
-                                        IconButton(
-                                          onPressed: () => _delete(i),
-                                          icon: const Icon(Icons.delete),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
+                                return _buildCard(p, i);
                               },
                             ),
                           ),
@@ -160,6 +155,61 @@ class _ProfileListPageState extends State<ProfileListPage> {
                         ),
                       ],
                     ),
+    );
+  }
+
+  Widget _buildCard(ContactProfile p, int i) {
+    if (p.isSystem) {
+      return Card(
+        color: systemBlue,
+        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: ListTile(
+          leading: const Icon(Icons.badge, color: Colors.white70),
+          title: Text(p.name,
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          subtitle: Text(
+            [
+              if (p.jobs.isNotEmpty && p.jobs.first.title.isNotEmpty)
+                p.jobs.first.title,
+              '${p.phones.length} tel • ${p.emails.length} mail',
+            ].join(' · '),
+            style: const TextStyle(color: Colors.white70),
+          ),
+          trailing: const Tooltip(
+            message: "Dodijeljeno iz sustava",
+            child: Icon(Icons.lock, color: Colors.white38, size: 18),
+          ),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => ProfileDetailPage(profile: p)),
+          ),
+        ),
+      );
+    }
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: ListTile(
+        title: Text(p.name),
+        subtitle: Text("${p.phones.length} tel • ${p.emails.length} mail"),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => ProfileDetailPage(profile: p)),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              onPressed: () => _openEditor(p),
+              icon: const Icon(Icons.edit),
+            ),
+            IconButton(
+              onPressed: () => _delete(p, i),
+              icon: const Icon(Icons.delete),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
