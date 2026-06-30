@@ -39,17 +39,22 @@ class DirectoryContact {
         ...businessPhones,
       ];
 
-  String toVCard() => [
-        'BEGIN:VCARD',
-        'VERSION:3.0',
-        'FN:$displayName',
-        'N:$displayName;;;;',
-        ...allPhones.map((p) => 'TEL;TYPE=WORK:$p'),
-        if (mail.isNotEmpty) 'EMAIL;TYPE=WORK:$mail',
-        if (jobTitle.isNotEmpty) 'TITLE:$jobTitle',
-        if (department.isNotEmpty) 'ORG:;$department',
-        'END:VCARD',
-      ].join('\r\n');
+  String toVCard() {
+    final lines = <String>[
+      'BEGIN:VCARD',
+      'VERSION:3.0',
+      'FN:$displayName',
+      'N:$displayName;;;;',
+    ];
+    for (final p in allPhones) {
+      lines.add('TEL;TYPE=WORK,VOICE:$p');
+    }
+    if (mail.isNotEmpty) lines.add('EMAIL;TYPE=WORK:$mail');
+    if (jobTitle.isNotEmpty) lines.add('TITLE:$jobTitle');
+    if (department.isNotEmpty) lines.add('ORG:$department');
+    lines.add('END:VCARD');
+    return '${lines.join('\r\n')}\r\n';
+  }
 }
 
 class DirectoryService {
@@ -82,7 +87,7 @@ class DirectoryService {
       final body = jsonDecode(res.body) as Map<String, dynamic>;
       final users = (body['value'] as List)
           .map((u) => DirectoryContact.fromJson(u as Map<String, dynamic>))
-          .where((u) => u.displayName.isNotEmpty)
+          .where((u) => u.displayName.isNotEmpty && u.allPhones.isNotEmpty)
           .toList();
       all.addAll(users);
       url = body['@odata.nextLink'] as String?;

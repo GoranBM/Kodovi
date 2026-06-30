@@ -4,13 +4,13 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/directory_service.dart';
 import '../services/file_util_stub.dart'
     if (dart.library.io) '../services/file_util_io.dart' as file_util;
+import '../widgets/qr_with_logo.dart';
 
 class DirectoryContactPage extends StatelessWidget {
   final DirectoryContact contact;
@@ -24,19 +24,25 @@ class DirectoryContactPage extends StatelessWidget {
       (defaultTargetPlatform == TargetPlatform.android ||
           defaultTargetPlatform == TargetPlatform.iOS);
 
-  Future<void> _addToContacts() async {
+  Future<void> _shareContact() async {
     final bytes = Uint8List.fromList(utf8.encode(contact.toVCard()));
     final xfile = await file_util.bytesToXFile(
         bytes, '${contact.displayName}.vcf', 'text/vcard');
-    await SharePlus.instance.share(ShareParams(files: [xfile]));
+    await SharePlus.instance.share(ShareParams(
+      files: [xfile],
+      subject: contact.displayName,
+    ));
   }
 
-  Future<void> _call(BuildContext context) async {
-    final phones = contact.allPhones;
+  Future<void> _call(BuildContext context, [String? phone]) async {
+    final phones = phone != null ? [phone] : contact.allPhones;
     if (phones.isEmpty) return;
 
     if (phones.length == 1) {
-      await launchUrl(Uri.parse('tel:${phones.first}'));
+      await launchUrl(
+        Uri.parse('tel:${phones.first}'),
+        mode: LaunchMode.externalApplication,
+      );
       return;
     }
 
@@ -53,7 +59,12 @@ class DirectoryContactPage extends StatelessWidget {
             .toList(),
       ),
     );
-    if (picked != null) await launchUrl(Uri.parse('tel:$picked'));
+    if (picked != null) {
+      await launchUrl(
+        Uri.parse('tel:$picked'),
+        mode: LaunchMode.externalApplication,
+      );
+    }
   }
 
   @override
@@ -66,40 +77,30 @@ class DirectoryContactPage extends StatelessWidget {
             padding: const EdgeInsets.all(24),
             child: Column(
               children: [
-                // QR kod
-                Container(
-                  color: Colors.white,
-                  padding: const EdgeInsets.all(20),
-                  child: QrImageView(
-                    data: contact.toVCard(),
-                    size: 250,
-                    backgroundColor: Colors.white,
-                    errorCorrectionLevel: QrErrorCorrectLevel.H,
-                    eyeStyle: const QrEyeStyle(
-                      eyeShape: QrEyeShape.square,
-                      color: blue,
-                    ),
-                    dataModuleStyle: const QrDataModuleStyle(
-                      dataModuleShape: QrDataModuleShape.square,
-                      color: blue,
-                    ),
-                  ),
-                ),
+                QrWithLogo(data: contact.toVCard()),
                 const SizedBox(height: 24),
 
-                // Podaci o kontaktu
                 if (contact.jobTitle.isNotEmpty)
                   _infoRow(Icons.work, contact.jobTitle),
                 if (contact.department.isNotEmpty)
                   _infoRow(Icons.business, contact.department),
-                for (final p in contact.allPhones)
-                  _infoRow(Icons.phone, p),
+                ...contact.allPhones.map((p) => _infoRow(
+                      Icons.phone,
+                      p,
+                      onTap: () => _call(context, p),
+                    )),
                 if (contact.mail.isNotEmpty)
-                  _infoRow(Icons.email, contact.mail),
+                  _infoRow(
+                    Icons.email,
+                    contact.mail,
+                    onTap: () => launchUrl(
+                      Uri.parse('mailto:${contact.mail}'),
+                      mode: LaunchMode.externalApplication,
+                    ),
+                  ),
 
                 const SizedBox(height: 32),
 
-                // Akcije
                 Wrap(
                   spacing: 12,
                   runSpacing: 12,
@@ -124,9 +125,9 @@ class DirectoryContactPage extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 20, vertical: 12),
                       ),
-                      onPressed: _addToContacts,
-                      icon: const Icon(Icons.person_add),
-                      label: const Text("Dodaj u kontakte"),
+                      onPressed: _shareContact,
+                      icon: const Icon(Icons.share),
+                      label: const Text("Dijeli kontakt"),
                     ),
                   ],
                 ),
@@ -138,14 +139,33 @@ class DirectoryContactPage extends StatelessWidget {
     );
   }
 
-  Widget _infoRow(IconData icon, String text) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
+  Widget _infoRow(IconData icon, String text, {VoidCallback? onTap}) {
+    final isClickable = onTap != null;
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
         child: Row(
           children: [
-            Icon(icon, size: 18, color: Colors.grey),
+            Icon(icon, size: 18, color: isClickable ? blue : Colors.grey),
             const SizedBox(width: 10),
-            Expanded(child: Text(text, style: const TextStyle(fontSize: 15))),
+            Expanded(
+              child: Text(
+                text,
+                style: TextStyle(
+                  fontSize: 15,
+                  color: isClickable ? blue : null,
+                  decoration: isClickable ? TextDecoration.underline : null,
+                  decorationColor: blue,
+                ),
+              ),
+            ),
+            if (isClickable)
+              const Icon(Icons.chevron_right, size: 16, color: Colors.grey),
           ],
         ),
-      );
+      ),
+    );
+  }
 }

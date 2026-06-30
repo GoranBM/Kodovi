@@ -17,7 +17,7 @@ class ProfileListPage extends StatefulWidget {
 
 class _ProfileListPageState extends State<ProfileListPage> {
   static const blue = Color(0xFF002856);
-  static const systemBlue = Color(0xFF001535); // tamnija za system kartice
+  static const systemBlue = Color(0xFF001535);
 
   List<ContactProfile> profiles = [];
   bool _loading = true;
@@ -35,7 +35,6 @@ class _ProfileListPageState extends State<ProfileListPage> {
       _error = null;
     });
 
-    // Daily sync iz Azure AD — greška ne blokira prikaz postojećih profila
     try {
       if (await OneDriveService.needsAdSync()) {
         await OneDriveService.syncSystemProfile();
@@ -44,7 +43,6 @@ class _ProfileListPageState extends State<ProfileListPage> {
 
     try {
       final all = await OneDriveService.loadAll();
-      // System kartice uvijek prve
       all.sort((a, b) => (b.isSystem ? 1 : 0) - (a.isSystem ? 1 : 0));
       if (mounted) setState(() => profiles = all);
     } catch (e) {
@@ -86,14 +84,6 @@ class _ProfileListPageState extends State<ProfileListPage> {
         title: const Text("Digitalna vizitka"),
         actions: [
           IconButton(
-            icon: const Icon(Icons.people),
-            tooltip: "Imenik Monting",
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const DirectoryPage()),
-            ),
-          ),
-          IconButton(
             icon: const Icon(Icons.logout),
             tooltip: "Odjava",
             onPressed: _logout,
@@ -117,44 +107,60 @@ class _ProfileListPageState extends State<ProfileListPage> {
                     ],
                   ),
                 )
-              : profiles.isEmpty
-                  ? Center(
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: blue,
-                        ),
-                        onPressed: () => _openEditor(),
-                        child: const Text("+ Kreiraj kontakt"),
-                      ),
-                    )
-                  : Column(
-                      children: [
-                        Expanded(
-                          child: RefreshIndicator(
-                            onRefresh: _load,
-                            child: ListView.builder(
-                              itemCount: profiles.length,
-                              itemBuilder: (c, i) {
-                                final p = profiles[i];
-                                return _buildCard(p, i);
-                              },
+              : Column(
+                  children: [
+                    Expanded(
+                      child: profiles.isEmpty
+                          ? const Center(
+                              child: Text(
+                                "Nema vizitki",
+                                style: TextStyle(color: Colors.white54),
+                              ),
+                            )
+                          : RefreshIndicator(
+                              onRefresh: _load,
+                              child: ListView.builder(
+                                itemCount: profiles.length,
+                                itemBuilder: (c, i) => _buildCard(profiles[i], i),
+                              ),
                             ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: blue,
-                            ),
-                            onPressed: () => _openEditor(),
-                            child: const Text("+ Novi kontakt"),
-                          ),
-                        ),
-                      ],
                     ),
+                    _buildBottomButtons(),
+                  ],
+                ),
+    );
+  }
+
+  Widget _buildBottomButtons() {
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: blue,
+            ),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const DirectoryPage()),
+            ),
+            icon: const Icon(Icons.people),
+            label: const Text("Imenik"),
+          ),
+          const SizedBox(width: 12),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: blue,
+            ),
+            onPressed: () => _openEditor(),
+            icon: const Icon(Icons.add),
+            label: const Text("Novi kontakt"),
+          ),
+        ],
+      ),
     );
   }
 
@@ -166,7 +172,8 @@ class _ProfileListPageState extends State<ProfileListPage> {
         child: ListTile(
           leading: const Icon(Icons.badge, color: Colors.white70),
           title: Text(p.name,
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              style: const TextStyle(
+                  color: Colors.white, fontWeight: FontWeight.bold)),
           subtitle: Text(
             [
               if (p.jobs.isNotEmpty && p.jobs.first.title.isNotEmpty)
